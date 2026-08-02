@@ -1,1 +1,1 @@
-# maufood-api-python
+# MauFood
