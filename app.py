@@ -37,18 +37,19 @@ except Exception as e:
 
 def get_filtered_menu_ids(kategori='', bahan='', rasa=''):
     """
-    Menyaring ID_Menu agar sesuai 100% dengan Dropdown yang dipilih pelayan.
-    Jika tidak ada dropdown yang dipilih, kembalikan semua ID.
+    Menyaring ID_Menu agar sesuai dengan Dropdown.
+    Diperbarui agar Case-Insensitive (mengabaikan perbedaan huruf besar/kecil).
     """
     if df_menu.empty: return []
     
     mask = pd.Series([True] * len(df_menu), index=df_menu.index)
+    
     if kategori:
-        mask &= (df_menu['Kategori_Hidangan'] == kategori)
+        mask &= (df_menu['Kategori_Hidangan'].astype(str).str.lower() == str(kategori).lower())
     if bahan:
-        mask &= (df_menu['Bahan_Baku'] == bahan)
+        mask &= (df_menu['Bahan_Baku'].astype(str).str.lower() == str(bahan).lower())
     if rasa:
-        mask &= (df_menu['Rasa_Dominan'] == rasa)
+        mask &= (df_menu['Rasa_Dominan'].astype(str).str.lower() == str(rasa).lower())
         
     return df_menu[mask]['ID_Menu'].tolist()
 
