@@ -15,7 +15,7 @@ def run_retrain():
     DB_HOST = os.getenv('DB_HOST', 'localhost')
     
     try:
-        DB_PORT = int(os.getenv('DB_PORT', 8889))
+        DB_PORT = int(os.getenv('DB_PORT', 4000))
     except ValueError:
         DB_PORT = 3306
 
@@ -29,7 +29,8 @@ def run_retrain():
             user=DB_USER,
             password=DB_PASS,
             database=DB_NAME,
-            port=DB_PORT
+            port=DB_PORT,
+            ssl={'ssl': {}}
         )
     except Exception as e:
         print(f"❌ Gagal terhubung ke database: {e}")
