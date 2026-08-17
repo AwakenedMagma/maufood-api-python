@@ -244,7 +244,7 @@ def recommend():
         # LOGIKA SWITCHING HYBRID
         if is_pelanggan_baru:
             # SKENARIO 1: Pelanggan Baru (Murni CBF) dengan Filter
-            df_rek = rekomendasi_cbf_baru(kategori, bahan, rasa, top_n=limit)            
+            df_rekomendasi = rekomendasi_cbf_baru(kategori, bahan, rasa, top_n=5)
             if df_rekomendasi.empty:
                 df_rekomendasi = rekomendasi_populer(kategori=kategori, bahan=bahan, rasa=rasa)
         else:
