@@ -173,7 +173,54 @@ def rekomendasi_weighted_hybrid(user_id, kategori='', bahan='', rasa='', top_n=5
         ['ID_Menu', 'Nama_Menu', 'Kategori_Hidangan', 'Bahan_Baku', 'Rasa_Dominan', 'skor', 'metode']
     ].reset_index(drop=True)
 
+def rekomendasi_cbf_baru(kategori='', bahan='', rasa='', top_n=5):
+    # 1. Ambil ID menu yang lolos Hard Filter (filter mutlak)
+    valid_ids = get_filtered_menu_ids(kategori, bahan, rasa)
+    
+    if not valid_ids:
+        return pd.DataFrame() # Jika tidak ada yang lolos, kembalikan kosong
 
+    # 2. Buat profil preferensi buatan dari input pelanggan
+    kat_str = str(kategori).replace(' ', '_') if kategori else ''
+    bah_str = str(bahan).replace(' ', '_') if bahan else ''
+    ras_str = str(rasa).replace(' ', '_') if rasa else ''
+    
+    preferensi_text = f"{kat_str} {bah_str} {ras_str}".strip()
+    
+    # Jika pelanggan tidak memilih filter sama sekali, kembalikan kosong agar PHP memicu Populer Fallback
+    if not preferensi_text:
+        return pd.DataFrame()
+
+    # 3. Ubah teks preferensi menjadi vektor matematika (TF-IDF)
+    pref_vektor = tfidf.transform([preferensi_text])
+    
+    # 4. Hitung skor kemiripan input pelanggan dengan seluruh menu di memori
+    sim_scores = cosine_similarity(pref_vektor, tfidf_matrix).flatten()
+    
+    hasil = []
+    for item_id in valid_ids:
+        idx = id_to_idx.get(item_id)
+        if idx is not None:
+            skor = sim_scores[idx]
+            hasil.append((item_id, skor))
+            
+    # 5. Urutkan dari skor tertinggi
+    hasil.sort(key=lambda x: x[1], reverse=True)
+    hasil = hasil[:top_n]
+    
+    if not hasil:
+        return pd.DataFrame()
+        
+    # 6. Format hasil untuk dikirim kembali ke PHP
+    df_hasil = df_menu[df_menu['ID_Menu'].isin([i for i, _ in hasil])].copy()
+    skor_map = {i: round(s, 3) for i, s in hasil}
+    
+    df_hasil['skor'] = df_hasil['ID_Menu'].map(skor_map)
+    df_hasil['metode'] = "Content-Based Filtering"
+    df_hasil = df_hasil.sort_values('skor', ascending=False)
+    
+    return df_hasil[['ID_Menu', 'Nama_Menu', 'Kategori_Hidangan', 'Bahan_Baku', 'Rasa_Dominan', 'skor', 'metode']].reset_index(drop=True)
+    
 # 3. ENDPOINT API (REST)
 
 @app.route('/api/recommend', methods=['POST'])
@@ -197,8 +244,7 @@ def recommend():
         # LOGIKA SWITCHING HYBRID
         if is_pelanggan_baru:
             # SKENARIO 1: Pelanggan Baru (Murni CBF) dengan Filter
-            df_rekomendasi = rekomendasi_dari_preferensi(kategori, bahan, rasa)
-            
+            df_rek = rekomendasi_cbf_baru(kategori, bahan, rasa, top_n=limit)            
             if df_rekomendasi.empty:
                 df_rekomendasi = rekomendasi_populer(kategori=kategori, bahan=bahan, rasa=rasa)
         else:
