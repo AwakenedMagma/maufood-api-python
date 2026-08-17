@@ -4,6 +4,7 @@ import numpy as np
 import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 import os
+import threading
 
 app = Flask(__name__)
 
@@ -228,6 +229,33 @@ def recommend():
             "message": f"Terjadi kesalahan internal: {str(e)}"
         }), 500
 
+WEBHOOK_SECRET = "rahasia_maufood_123"
+
+@app.route('/api/trigger-retrain', methods=['POST'])
+def trigger_retrain():
+    data = request.json
+    
+    # Cek apakah yang mengirim sinyal benar-benar web PHP Anda (mencocokkan password)
+    if not data or data.get('secret') != WEBHOOK_SECRET:
+        return jsonify({"status": "error", "message": "Akses Ditolak."}), 401
+
+    # Fungsi ini akan berjalan diam-diam di belakang layar
+    def background_task():
+        print("Sinyal diterima! Memulai retrain otomatis dari web Admin...")
+        try:
+            run_retrain()       
+            load_artifacts()    
+            print("Selesai! AI sudah pintar dengan menu baru.")
+        except Exception as e:
+            print(f"Gagal retrain: {e}")
+
+    thread = threading.Thread(target=background_task)
+    thread.start()
+
+    return jsonify({
+        "status": "success", 
+        "message": "Sinyal retrain diterima. AI sedang diproses di latar belakang."
+    }), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 8080))
