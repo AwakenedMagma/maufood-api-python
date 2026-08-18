@@ -5,3 +5,5 @@ scikit-learn
 scipy
 gunicorn
 pyarrow
+pymysql
+cryptography
