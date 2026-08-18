@@ -5,33 +5,61 @@ import pickle
 from sklearn.metrics.pairwise import cosine_similarity
 import os
 import threading
+from retrain import run_retrain
 
 app = Flask(__name__)
 
-# 1. INISIALISASI & MEMUAT ARTEFAK MODEL
+# 1. INISIALISASI & PEMUATAN ARTEFAK MODEL
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ARTIFACTS_PATH = os.path.join(BASE_DIR, 'hybrid_artifacts.pkl')
 
-try:
-    with open(ARTIFACTS_PATH, 'rb') as f:
-        artifacts = pickle.load(f)
-        
-    df_menu = artifacts['df_menu']
-    tfidf = artifacts['tfidf_vectorizer']
-    tfidf_matrix = artifacts['tfidf_matrix']
-    cos_sim = artifacts['cosine_sim_matrix']
-    user_item_matrix = artifacts['user_item_matrix']
-    user_means = artifacts['user_means']
-    user_sim_df = artifacts['user_similarity_matrix']
-    alpha_default = artifacts['alpha_default']
-    beta_default = artifacts['beta_default']
-    
-    id_to_idx = {mid: i for i, mid in enumerate(df_menu['ID_Menu'])}
-    
-    print("✅ Berhasil memuat artefak model hybrid_artifacts.pkl dari:", ARTIFACTS_PATH)
-except Exception as e:
-    print(f"❌ Gagal memuat artefak model: {e}")
-    df_menu = pd.DataFrame()
+# df_menu dan variabel lain di bawah ini dideklarasikan di level modul supaya
+# bisa diperbarui ulang (di-reassign) oleh load_artifacts() setelah retrain,
+# tanpa perlu me-restart proses Flask.
+df_menu = pd.DataFrame()
+tfidf = None
+tfidf_matrix = None
+cos_sim = None
+user_item_matrix = None
+user_means = None
+user_sim_df = None
+alpha_default = 0.6
+beta_default = 0.4
+id_to_idx = {}
+
+
+def load_artifacts():
+    """Memuat (atau memuat ULANG) hybrid_artifacts.pkl ke variabel global.
+    Dipanggil sekali saat startup, dan dipanggil lagi oleh trigger_retrain()
+    setelah retrain.py selesai menulis artefak baru -- tanpa perlu restart
+    worker gunicorn."""
+    global df_menu, tfidf, tfidf_matrix, cos_sim, user_item_matrix
+    global user_means, user_sim_df, alpha_default, beta_default, id_to_idx
+
+    try:
+        with open(ARTIFACTS_PATH, 'rb') as f:
+            artifacts = pickle.load(f)
+
+        df_menu = artifacts['df_menu']
+        tfidf = artifacts['tfidf_vectorizer']
+        tfidf_matrix = artifacts['tfidf_matrix']
+        cos_sim = artifacts['cosine_sim_matrix']
+        user_item_matrix = artifacts['user_item_matrix']
+        user_means = artifacts['user_means']
+        user_sim_df = artifacts['user_similarity_matrix']
+        alpha_default = artifacts['alpha_default']
+        beta_default = artifacts['beta_default']
+
+        id_to_idx = {mid: i for i, mid in enumerate(df_menu['ID_Menu'])}
+
+        print("✅ Berhasil memuat artefak model hybrid_artifacts.pkl dari:", ARTIFACTS_PATH)
+    except Exception as e:
+        print(f"❌ Gagal memuat artefak model: {e}")
+        df_menu = pd.DataFrame()
+
+
+# Muat artefak pertama kali saat aplikasi start
+load_artifacts()
 
 
 # 2. FUNGSI FILTER & REKOMENDASI (DENGAN HARD FILTER)
